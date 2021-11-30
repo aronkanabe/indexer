@@ -1,13 +1,14 @@
 package fetcher
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
 	"go.uber.org/zap"
 )
 
-const IdentityApiCount = 2
+const IdentityApiCount = 3
 
 func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 
@@ -21,7 +22,7 @@ func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 	go f.processSuperrare(address, ch)
 	// Part 2 - Add other data source here
 	// TODO
-
+	go f.processPoap(address, ch)
 	// Final Part - Merge entry
 	for i := 0; i < IdentityApiCount; i++ {
 		entry := <-ch
@@ -53,6 +54,9 @@ func (f *fetcher) FetchIdentity(address string) (IdentityEntryList, error) {
 		}
 		if entry.Showtime != nil {
 			identityArr.Showtime = append(identityArr.Showtime, *entry.Showtime)
+		}
+		if entry.Poap != nil {
+			identityArr.Poap = append(identityArr.Poap, entry.Poap...)
 		}
 		if entry.Ens != nil {
 			identityArr.Ens = entry.Ens.Ens
@@ -182,5 +186,96 @@ func (f *fetcher) processSuperrare(address string, ch chan<- IdentityEntry) {
 		result.Superrare = &newSprRecord
 	}
 
+	ch <- result
+}
+
+// GiCoin bounty https://gitcoin.co/issue/cyberconnecthq/indexer/2/100027191
+func (f *fetcher) processPoap(address string, ch chan<- IdentityEntry) {
+	var result IdentityEntry
+	jsonData := map[string]string{
+		"query": fmt.Sprintf(`
+            { 
+                account(id: "%s") {
+					id
+					tokens {
+					  id
+					  event {
+						id
+						}
+					  }
+					}
+            }
+        `, address),
+	}
+	jsonValue, _ := json.Marshal(jsonData)
+
+	body, err := sendRequest(f.httpClient, RequestArgs{
+		url:    PoapSubGraphUrl,
+		method: "POST",
+		body:   bytes.NewBuffer(jsonValue).Bytes(),
+	})
+	if err != nil {
+		result.Err = err
+		result.Msg = "[processPoap] fetch identity failed"
+		ch <- result
+		return
+	}
+	poapGraphResponse := PoapGraphResponse{}
+	err = json.Unmarshal(body, &poapGraphResponse)
+	if err != nil {
+		result.Err = err
+		result.Msg = "[processPoap] identity response json unmarshal failed"
+		ch <- result
+		return
+	}
+
+	for _, poap := range poapGraphResponse.Data.Account.Tokens {
+		body, err := sendRequest(f.httpClient, RequestArgs{
+			url:    PoapApiUrl + fmt.Sprintf("/events/id/%d", poap.Event.ID),
+			method: "GET",
+		})
+
+		if err != nil {
+			result.Err = err
+			result.Msg = "[processPoap] fetch event identity failed"
+			ch <- result
+			return
+		}
+
+		poapApiResponse := PoapApiResponse{}
+		err = json.Unmarshal(body, &poapApiResponse)
+		if err != nil {
+			result.Err = err
+			result.Msg = "[processSuperrare] fetch identity response json unmarshal failed"
+			ch <- result
+			return
+		}
+
+		newPoapRecord := UserPoapIdentity{
+			Address:         poapGraphResponse.Data.Account.ID,
+			EventID:         poap.Event.ID,
+			TokenID:         poap.ID,
+			FancyID:         poapApiResponse.FancyID,
+			Name:            poapApiResponse.Name,
+			EventUrl:        poapApiResponse.EventURL,
+			ImageUrl:        poapApiResponse.ImageURL,
+			Country:         poapApiResponse.Country,
+			City:            poapApiResponse.City,
+			Description:     poapApiResponse.Description,
+			Year:            poapApiResponse.Year,
+			StartDate:       poapApiResponse.StartDate,
+			EndDate:         poapApiResponse.EndDate,
+			ExpiryDate:      poapApiResponse.ExpiryDate,
+			FromAdmin:       poapApiResponse.FromAdmin,
+			VirtualEvent:    poapApiResponse.VirtualEvent,
+			EventTemplateID: poapApiResponse.EventTemplateID,
+			EventHostID:     poapApiResponse.EventHostID,
+			PrivateEvent:    poapApiResponse.PrivateEvent,
+		}
+
+		if newPoapRecord.Address != "" || newPoapRecord.EventID != 0 || newPoapRecord.TokenID != 0 {
+			result.Poap = append(result.Poap, newPoapRecord)
+		}
+	}
 	ch <- result
 }

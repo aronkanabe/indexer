@@ -28,6 +28,8 @@ const (
 	SuperrareUrl        = "https://superrare.com/api/v2/user?address=%s"
 	RaribleFollowingUrl = "https://api-mainnet.rarible.com/marketplace/api/v4/followings?owner=%s"
 	RaribleFollowerUrl  = "https://api-mainnet.rarible.com/marketplace/api/v4/followers?user=%s"
+	PoapSubGraphUrl     = "https://api.thegraph.com/subgraphs/name/amxx/poap"
+	PoapApiUrl          = "https://api.poap.xyz"
 )
 
 type ConnectionEntryList struct {
@@ -50,6 +52,7 @@ type IdentityEntryList struct {
 	Zora       []UserZoraIdentity
 	Foundation []UserFoundationIdentity
 	Showtime   []UserShowtimeIdentity
+	Poap       []UserPoapIdentity
 	Ens        string
 }
 
@@ -63,6 +66,7 @@ type IdentityEntry struct {
 	Ens        *UserEnsIdentity
 	Foundation *UserFoundationIdentity
 	Showtime   *UserShowtimeIdentity
+	Poap       []UserPoapIdentity
 	Err        error
 	Msg        string
 }
@@ -145,6 +149,28 @@ type UserShowtimeIdentity struct {
 	OpenseaHandle    string
 	RaribleHandle    string
 	DataSource       string
+}
+
+type UserPoapIdentity struct {
+	Address         string
+	EventID         int
+	TokenID         int
+	FancyID         string
+	Name            string
+	EventUrl        string
+	ImageUrl        string
+	Country         string
+	City            string
+	Description     string
+	Year            int
+	StartDate       string
+	EndDate         string
+	ExpiryDate      string
+	FromAdmin       bool
+	VirtualEvent    bool
+	EventTemplateID int
+	EventHostID     int
+	PrivateEvent    bool
 }
 
 type RaribleConnectionResp struct {
@@ -231,4 +257,38 @@ type FoundationIdentity struct {
 			} `json:"instaSocialVerifs"`
 		} `json:"user"`
 	} `json:"data"`
+}
+
+type PoapGraphResponse struct {
+	Data struct {
+		Account struct {
+			ID     string `json:"id"`
+			Tokens []struct {
+				ID    int `json:"id,string"`
+				Event struct {
+					ID int `json:"id,string"`
+				} `json:"event"`
+			} `json:"tokens"`
+		} `json:"account"`
+	} `json:"data"`
+}
+
+type PoapApiResponse struct {
+	ID              int    `json:"id"`
+	FancyID         string `json:"fancy_id"`
+	Name            string `json:"name"`
+	EventURL        string `json:"event_url"`
+	ImageURL        string `json:"image_url"`
+	Country         string `json:"country"`
+	City            string `json:"city"`
+	Description     string `json:"description"`
+	Year            int    `json:"year"`
+	StartDate       string `json:"start_date"`
+	EndDate         string `json:"end_date"`
+	ExpiryDate      string `json:"expiry_date"`
+	FromAdmin       bool   `json:"from_admin"`
+	VirtualEvent    bool   `json:"virtual_event"`
+	EventTemplateID int    `json:"event_template_id"`
+	EventHostID     int    `json:"event_host_id"`
+	PrivateEvent    bool   `json:"private_event"`
 }

@@ -171,6 +171,13 @@ type UserPoapIdentity struct {
 	EventTemplateID int
 	EventHostID     int
 	PrivateEvent    bool
+	Recommendations []PoapRecommendation
+}
+
+type PoapRecommendation struct {
+	Address string
+	EventID int
+	TokenID int
 }
 
 type RaribleConnectionResp struct {
@@ -266,7 +273,13 @@ type PoapGraphResponse struct {
 			Tokens []struct {
 				ID    int `json:"id,string"`
 				Event struct {
-					ID int `json:"id,string"`
+					ID     int `json:"id,string"`
+					Tokens []struct {
+						ID    int `json:"id,string"`
+						Owner struct {
+							ID string `json:"id"`
+						} `json:"owner"`
+					} `json:"tokens"`
 				} `json:"event"`
 			} `json:"tokens"`
 		} `json:"account"`

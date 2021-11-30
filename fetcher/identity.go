@@ -201,6 +201,12 @@ func (f *fetcher) processPoap(address string, ch chan<- IdentityEntry) {
 					  id
 					  event {
 						id
+						tokens {
+							owner {
+								id
+							}
+							id
+						}
 						}
 					  }
 					}
@@ -251,6 +257,17 @@ func (f *fetcher) processPoap(address string, ch chan<- IdentityEntry) {
 			return
 		}
 
+		var recommendations []PoapRecommendation
+		for _, recommendation := range poap.Event.Tokens {
+			var newPopaRecommendation PoapRecommendation
+			newPopaRecommendation = PoapRecommendation{
+				Address: recommendation.Owner.ID,
+				EventID: poap.Event.ID,
+				TokenID: recommendation.ID,
+			}
+			recommendations = append(recommendations, newPopaRecommendation)
+		}
+
 		newPoapRecord := UserPoapIdentity{
 			Address:         poapGraphResponse.Data.Account.ID,
 			EventID:         poap.Event.ID,
@@ -271,6 +288,7 @@ func (f *fetcher) processPoap(address string, ch chan<- IdentityEntry) {
 			EventTemplateID: poapApiResponse.EventTemplateID,
 			EventHostID:     poapApiResponse.EventHostID,
 			PrivateEvent:    poapApiResponse.PrivateEvent,
+			Recommendations: recommendations,
 		}
 
 		if newPoapRecord.Address != "" || newPoapRecord.EventID != 0 || newPoapRecord.TokenID != 0 {
